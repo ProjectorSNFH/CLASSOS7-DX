@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).send('Method Not Allowed');
 
     const { target } = req.query; // 무엇을 불러올지 파라미터로 받음 (dashboard, board, datacenter)
