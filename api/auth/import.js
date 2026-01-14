@@ -71,7 +71,7 @@ export default async function handler(req, res) {
                         uploader: "시스템관리자", // 나중에 write에서 메타데이터로 관리 가능
                         title: f.description || f.name,
                         fileName: f.name,
-                        fileLink: f.webViewLink,
+                        fileLink: `https://drive.google.com/uc?export=download&id=${f.id}`,
                         date: f.createdTime.split('T')[0]
                     }));
 
