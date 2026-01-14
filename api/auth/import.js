@@ -67,19 +67,27 @@ export default async function handler(req, res) {
                         q: "'1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy' in parents and trashed = false"
                     });
                     const formattedFiles = response.data.files.map(f => {
-                        // 설명(description)이 있으면 '|'로 나누고, 없으면 기본값 설정
+                        // 1. 구글의 UTC 시간을 자바스크립트 Date 객체로 변환
+                        const utcDate = new Date(f.createdTime);
+
+                        // 2. 한국 시간(KST)으로 변환 (UTC + 9시간)
+                        const kstDate = new Date(utcDate.getTime() + (9 * 60 * 60 * 1000));
+
+                        // 3. 변환된 시간을 YYYY-MM-DD 형식으로 추출
+                        const formattedDate = kstDate.toISOString().split('T')[0];
+
                         const desc = f.description || "";
                         const [uploader, title] = desc.includes('|')
                             ? desc.split('|')
-                            : ["시스템관리자", f.name]; // '|'가 없으면 파일명을 제목으로 사용
+                            : ["시스템관리자", f.name];
 
                         return {
                             id: f.id,
-                            uploader: uploader.trim(), // '학생회장'
-                            title: title.trim(),       // '2026학년도 축제 기획안'
+                            uploader: uploader.trim(),
+                            title: title.trim(),
                             fileName: f.name,
                             fileLink: `https://drive.google.com/uc?export=download&id=${f.id}`,
-                            date: f.createdTime.split('T')[0]
+                            date: formattedDate // 이제 한국 날짜로 정확히 출력됩니다.
                         };
                     });
 
