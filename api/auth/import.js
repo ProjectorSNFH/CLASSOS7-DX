@@ -59,12 +59,13 @@ export default async function handler(req, res) {
                     const drive = google.drive({ version: 'v3', auth });
 
                     // 특정 폴더 내의 파일들만 가져오기 (폴더 ID 필요)
+                    // import.js 내의 drive.files.list 부분을 이렇게 수정하세요.
                     const response = await drive.files.list({
                         pageSize: 10,
                         fields: 'files(id, name, createdTime, description, webViewLink)',
-                        // q: "'폴더ID' in parents" // 특정 폴더만 지정하고 싶을 때 사용
+                        // [수정] q 파라미터를 추가하여 특정 폴더 안의 파일만 가져오게 합니다.
+                        q: "'1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy' in parents and trashed = false"
                     });
-
                     const formattedFiles = response.data.files.map(f => ({
                         id: f.id,
                         uploader: "시스템관리자", // 나중에 write에서 메타데이터로 관리 가능
