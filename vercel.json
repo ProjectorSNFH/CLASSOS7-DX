@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/import", "destination": "/api/auth/import" },
+    { "source": "/write", "destination": "/api/auth/write" }
+  ]
+}

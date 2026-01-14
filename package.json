@@ -1,0 +1,24 @@
+{
+  "name": "classos7-dx",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ProjectorSNFH/CLASSOS7-DX.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ProjectorSNFH/CLASSOS7-DX/issues"
+  },
+  "homepage": "https://github.com/ProjectorSNFH/CLASSOS7-DX#readme",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "googleapis": "^170.0.0"
+  }
+}
