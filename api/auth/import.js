@@ -66,14 +66,22 @@ export default async function handler(req, res) {
                         // [수정] q 파라미터를 추가하여 특정 폴더 안의 파일만 가져오게 합니다.
                         q: "'1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy' in parents and trashed = false"
                     });
-                    const formattedFiles = response.data.files.map(f => ({
-                        id: f.id,
-                        uploader: "시스템관리자", // 나중에 write에서 메타데이터로 관리 가능
-                        title: f.description || f.name,
-                        fileName: f.name,
-                        fileLink: `https://drive.google.com/uc?export=download&id=${f.id}`,
-                        date: f.createdTime.split('T')[0]
-                    }));
+                    const formattedFiles = response.data.files.map(f => {
+                        // 설명(description)이 있으면 '|'로 나누고, 없으면 기본값 설정
+                        const desc = f.description || "";
+                        const [uploader, title] = desc.includes('|')
+                            ? desc.split('|')
+                            : ["시스템관리자", f.name]; // '|'가 없으면 파일명을 제목으로 사용
+
+                        return {
+                            id: f.id,
+                            uploader: uploader.trim(), // '학생회장'
+                            title: title.trim(),       // '2026학년도 축제 기획안'
+                            fileName: f.name,
+                            fileLink: `https://drive.google.com/uc?export=download&id=${f.id}`,
+                            date: f.createdTime.split('T')[0]
+                        };
+                    });
 
                     return res.status(200).json(formattedFiles);
                 } catch (err) {
