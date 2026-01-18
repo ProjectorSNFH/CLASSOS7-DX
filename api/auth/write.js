@@ -5,37 +5,27 @@ const fs = require('fs');
 const path = require('path');
 
 // [참고] 실제 운영 시에는 아래 변수들을 별도의 JSON 파일로 관리하는 것이 좋습니다.
-let dashboardData = {
-    latecomers: "김철수, 이영희",
-    cleaning: "01, 02 / 03, 04"
-};
-
-let boardData = [
-    { id: 1, title: "1차 수행평가", date: "2026-03-20", category: "수행" },
-    { id: 2, title: "학급 회의 안내", date: "2026-03-25", category: "안내" }
-];
 
 // POST: /api/auth/export
+// [수정된 write.js - POST 부분]
 router.post('/export', (req, res) => {
-    const { target, ...payload } = req.body;
+    const { target, latecomers, cleaning, data } = req.body; // 구조 분해를 명확히 함
 
     if (target === 'dashboard') {
-        // 대시보드 데이터 업데이트 (지각생, 청소당번)
-        dashboardData.latecomers = payload.latecomers || dashboardData.latecomers;
-        dashboardData.cleaning = payload.cleaning || dashboardData.cleaning;
+        // 빈 문자열("")로 저장할 수도 있으므로 || 대신 undefined 체크
+        dashboardData.latecomers = (latecomers !== undefined) ? latecomers : dashboardData.latecomers;
+        dashboardData.cleaning = (cleaning !== undefined) ? cleaning : dashboardData.cleaning;
         
         console.log("Dashboard Updated:", dashboardData);
         return res.json({ success: true, message: "대시보드 저장 완료" });
     }
 
     if (target === 'board') {
-        // 게시판 데이터 업데이트 (배열 형태로 교체하거나 추가)
-        // payload.data는 전체 게시글 배열이라고 가정합니다.
-        if (Array.isArray(payload.data)) {
-            boardData = payload.data;
-            console.log("Board Updated:", boardData);
+        if (Array.isArray(data)) {
+            boardData = data;
             return res.json({ success: true, message: "게시판 저장 완료" });
         }
+        return res.status(400).json({ success: false, message: "배열 형식이 아닙니다." });
     }
 
     res.status(400).json({ success: false, message: "잘못된 타겟입니다." });
