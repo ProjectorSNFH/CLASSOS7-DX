@@ -8,7 +8,7 @@ const path = require('path');
 
 // POST: /api/auth/export
 // [수정된 write.js - POST 부분]
-router.post('/export', (req, res) => {
+rrouter.post('/write', (req, res) => { 
     const { target, latecomers, cleaning, data } = req.body; // 구조 분해를 명확히 함
 
     if (target === 'dashboard') {
