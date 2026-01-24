@@ -13,7 +13,7 @@ export default async function handler(req, res) {
         const userRole = req.headers['x-user-role'];
 
         // [2] 환경 변수 확인 (가장 빈번한 500 원인)
-        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
             throw new Error("서버 환경 변수가 설정되지 않았습니다. (SUPABASE_URL 또는 KEY 누락)");
         }
 
