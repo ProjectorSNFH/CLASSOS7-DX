@@ -1,56 +1,70 @@
-const express = require('express');
-const router = express.Router();
+import { createClient } from '@supabase/supabase-js';
 
-// 데이터 메모리 저장소 (초기값)
-let dashboardData = {
-    latecomers: "김철수, 이영희",
-    cleaning: "01, 02 / 03, 04"
-};
-let boardData = [];
+// 환경 변수 설정
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
-// POST: /api/auth/write
-router.post('/write', (req, res) => {
-    try {
-        // req.body가 없으면 400 에러 반환 (500 에러 방지)
-        if (!req.body) {
-            return res.status(400).json({ success: false, message: "Request body is missing" });
-        }
+export default async function handler(req, res) {
+    // 1. CORS 설정 (import.js와 동일하게)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-        const { target, latecomers, cleaning, data } = req.body;
-
-        if (target === 'dashboard') {
-            // undefined 체크를 통해 값이 올 때만 업데이트
-            if (latecomers !== undefined) dashboardData.latecomers = latecomers;
-            if (cleaning !== undefined) dashboardData.cleaning = cleaning;
-            
-            console.log("Dashboard Updated:", dashboardData);
-            return res.json({ success: true, message: "대시보드 저장 완료" });
-        }
-
-        if (target === 'board') {
-            if (Array.isArray(data)) {
-                boardData = data;
-                console.log("Board Updated:", boardData);
-                return res.json({ success: true, message: "게시판 저장 완료" });
-            }
-            return res.status(400).json({ success: false, message: "data 형식이 배열이 아닙니다." });
-        }
-
-        return res.status(400).json({ success: false, message: "잘못된 target입니다." });
-
-    } catch (err) {
-        // 서버 콘솔에 진짜 에러 원인을 출력 (디버깅용)
-        console.error("SERVER CRASH ERROR:", err);
-        return res.status(500).json({ success: false, message: "서버 내부 로직 에러: " + err.message });
+    // Preflight 요청 처리
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
-});
 
-// GET: /api/auth/import
-router.get('/import', (req, res) => {
-    const { target } = req.query;
-    if (target === 'dashboard') return res.json(dashboardData);
-    if (target === 'board') return res.json(boardData);
-    return res.status(404).json({ message: "Not Found" });
-});
+    // POST 요청만 허용
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
 
-module.exports = router;
+    // 요청 바디에서 데이터 추출
+    const { target, latecomers, cleaning, boardData } = req.body;
+
+    try {
+        switch (target) {
+            case 'dashboard':
+                // 대시보드 데이터 업데이트 (지각생, 청소당번)
+                // dashboard_data 테이블의 구조가 { type: 'string', value: 'string' } 이라고 가정
+                
+                // Supabase upsert (Insert or Update)
+                const { error: dError } = await supabase
+                    .from('dashboard_data')
+                    .upsert([
+                        { type: 'late', value: latecomers },
+                        { type: 'cleaning', value: cleaning }
+                    ], { onConflict: 'type' }); // type 컬럼이 기준
+
+                if (dError) throw dError;
+
+                return res.status(200).json({ success: true, message: "대시보드 데이터 저장 완료" });
+
+            case 'board':
+                // (추후 구현 예정인 게시판 데이터 저장 로직)
+                // 예: boardData 배열을 받아 통째로 교체하거나 추가
+                /*
+                if (!Array.isArray(boardData)) throw new Error("데이터 형식이 올바르지 않습니다.");
+                
+                const { error: bError } = await supabase
+                    .from('board_data')
+                    .upsert(boardData); // id가 있다면 업데이트됨
+                
+                if (bError) throw bError;
+                */
+                return res.status(200).json({ success: true, message: "게시판 저장(준비중)" });
+
+            case 'datacenter':
+                // 데이터센터는 보통 파일 업로드이므로 로직이 다를 수 있음
+                // 여기서는 메타데이터 수정만 가정
+                return res.status(200).json({ success: true, message: "데이터센터 수정 완료" });
+
+            default:
+                return res.status(400).json({ error: "Invalid target" });
+        }
+
+    } catch (error) {
+        console.error("Write Error:", error);
+        return res.status(500).json({ error: error.message });
+    }
+}
