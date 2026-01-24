@@ -5,7 +5,7 @@ import { checkPermission } from '../middleware.js'; // 소문자 파일명 확�
 // [주의] 쓰기 작업이므로 ANON_KEY 대신 SERVICE_ROLE_KEY를 사용해야 RLS 에러가 안 납니다.
 const supabase = createClient(
     process.env.SUPABASE_URL, 
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_ANON_KEY
 );
 
 export default async function handler(req, res) {
