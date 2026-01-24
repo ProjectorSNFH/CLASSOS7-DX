@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/import", "destination": "/api/auth/import" },
+    { "source": "/middleware", "destination": "/api/auth/middleware" },
     { "source": "/write", "destination": "/api/auth/write" }
   ]
 }
