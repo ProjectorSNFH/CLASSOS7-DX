@@ -1,44 +1,33 @@
-/**
- * middleware.js
- * 권한 'A': 모든 데이터 접근 가능
- * 권한 'T': dashboard 데이터만
- * 권한 'D': datacenter 데이터만
- * 권한 'B': board 데이터만
- */
+// 서버 임시 저장소 (Vercel 특성상 전역 변수는 짧은 시간 유지됨)
+let currentToken = "";
+let tokenExpiry = 0;
 
 export function checkPermission(req, target) {
-    // 1. 헤더에서 권한 가져오기 (대소문자 구분 없이 처리)
-    const userRole = req.headers['x-user-role']; 
+    const userRole = req.headers['x-user-role'];
+    if (!userRole) return false;
+    
+    const role = userRole.trim().toUpperCase();
+    if (role === 'A') return true;
+    
+    const map = { 'dashboard': 'T', 'board': 'B', 'datacenter': 'D' };
+    return role === map[target];
+}
 
-    // [디버깅 로그] 서버에 어떤 값이 들어오는지 확인
-    console.log(`[AUTH DEBUG] 요청 타겟: ${target}, 전달된 권한: "${userRole}"`);
+// [신규] 토큰 생성 함수 (요청 시 호출)
+export function generateToken(role) {
+    if (!['A', 'T', 'B', 'D'].includes(role)) return "none";
+    
+    // 5자리 랜덤 숫자 토큰 생성
+    const newToken = Math.floor(10000 + Math.random() * 90000).toString();
+    currentToken = newToken;
+    tokenExpiry = Date.now() + 10000; // 10초간 유효
+    return newToken;
+}
 
-    if (!userRole) {
-        console.log("❌ 권한 헤더가 없습니다.");
-        return false;
-    }
-
-    // 2. 총관리자 'A'는 모든 문을 통과
-    if (userRole.trim().toUpperCase() === 'A') {
-        console.log("✅ 총관리자(A) 승인됨");
-        return true;
-    }
-
-    // 3. 각 파트별 권한 매핑
-    const permissionMap = {
-        'dashboard': 'T',
-        'board': 'B',
-        'datacenter': 'D'
-    };
-
-    const requiredRole = permissionMap[target];
-    const isAuthorized = userRole.trim().toUpperCase() === requiredRole;
-
-    if (isAuthorized) {
-        console.log(`✅ ${target} 권한(${requiredRole}) 일치함`);
-    } else {
-        console.log(`❌ 권한 불일치: 필요한 권한은 ${requiredRole}이지만 받은 권한은 ${userRole}입니다.`);
-    }
-
-    return isAuthorized;
+// [신규] 토큰 검증 함수
+export function verifyToken(inputToken) {
+    if (!inputToken || inputToken === "none") return "ACCESS_DENIED";
+    if (Date.now() > tokenExpiry) return "EXPIRED";
+    if (inputToken !== currentToken) return "MISMATCH";
+    return "SUCCESS";
 }
