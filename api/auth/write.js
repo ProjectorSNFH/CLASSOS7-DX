@@ -3,6 +3,15 @@ import { createClient } from '@supabase/supabase-js';
 // RLS를 껐으므로 ANON_KEY로도 쓰기가 가능합니다.
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
+// write.js 또는 import.js 내부
+const { data: config } = await supabase.from('server_config').select('is_online').eq('id', 1).single();
+
+// 서버가 꺼져있고 사용자가 총관리자(A)가 아니라면 차단
+if (!config.is_online && req.headers['x-user-role'] !== 'A') {
+    return res.status(503).json({ success: false, message: "SERVER IS CURRENTLY OFF." });
+}
+
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
