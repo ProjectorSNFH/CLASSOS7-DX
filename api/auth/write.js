@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
+// RLS를 껐으므로 ANON_KEY로도 쓰기가 가능합니다.
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
 
 export default async function handler(req, res) {
@@ -8,34 +9,53 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-user-role');
 
     if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
-    const { target, latecomers, cleaning, token } = req.body;
+    const { target, token, data } = req.body;
 
     try {
-        // [토큰 검증 로직] DB에서 방금 만든 토큰이 있는지 확인 (최근 1분 이내)
+        // [1] 토큰 검증 (DB 기반)
         const { data: tokenData, error: tError } = await supabase
             .from('auth_tokens')
             .select('*')
             .eq('token_value', token)
-            .gte('created_at', new Date(Date.now() - 60000).toISOString()) // 1분 이내 것만
+            .gte('created_at', new Date(Date.now() - 60000).toISOString()) // 1분 이내
             .single();
 
         if (!tokenData || tError) {
             return res.status(400).json({ success: false, message: "요청된 프로세스가 일치하지 않거나 만료됨" });
         }
 
-        // 검증 성공 시 사용한 토큰은 삭제 (1회용)
+        // 검증 성공 시 토큰 즉시 삭제
         await supabase.from('auth_tokens').delete().eq('token_value', token);
 
-        // [데이터 저장 로직]
+        // [2] 타겟별 데이터 처리
         if (target === 'dashboard') {
             const { error } = await supabase
                 .from('dashboard_data')
-                .upsert([{ type: 'late', value: latecomers }, { type: 'cleaning', value: cleaning }], { onConflict: 'type' });
-
+                .upsert([
+                    { type: 'late', value: data.latecomers },
+                    { type: 'cleaning', value: data.cleaning }
+                ], { onConflict: 'type' });
             if (error) throw error;
-            return res.status(200).json({ success: true, message: "저장에 성공함" });
+        } 
+        else if (target === 'board') {
+            // 게시판 전체 데이터를 덮어쓰기 하거나, ID 기반으로 동기화
+            // 여기서는 단순하게 board_data 테이블을 현재 상태로 갱신하는 방식을 씁니다.
+            // 1. 기존 데이터 삭제 (관리자 수정본으로 덮어쓰기 위해)
+            await supabase.from('board_data').delete().neq('id', 0); // 전체 삭제 예시
+            
+            // 2. 새 데이터 삽입 (isEditing 등 UI 속성 제외)
+            const cleanData = data.boardList.map(item => ({
+                title: item.title,
+                date: item.date
+            }));
+            const { error } = await supabase.from('board_data').insert(cleanData);
+            if (error) throw error;
         }
+
+        return res.status(200).json({ success: true, message: "서버에 저장되었습니다!" });
+
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
