@@ -38,21 +38,22 @@ export default async function handler(req, res) {
                     { type: 'cleaning', value: data.cleaning }
                 ], { onConflict: 'type' });
             if (error) throw error;
-        } 
+        }
+        // ... (생략)
         else if (target === 'board') {
-            // 게시판 전체 데이터를 덮어쓰기 하거나, ID 기반으로 동기화
-            // 여기서는 단순하게 board_data 테이블을 현재 상태로 갱신하는 방식을 씁니다.
-            // 1. 기존 데이터 삭제 (관리자 수정본으로 덮어쓰기 위해)
-            await supabase.from('board_data').delete().neq('id', 0); // 전체 삭제 예시
-            
-            // 2. 새 데이터 삽입 (isEditing 등 UI 속성 제외)
+            await supabase.from('board_data').delete().neq('id', 0);
+
+            // 프론트에서 넘어온 category를 그대로 DB에 꽂아줍니다.
             const cleanData = data.boardList.map(item => ({
+                category: item.category || "수행",
                 title: item.title,
                 date: item.date
             }));
+
             const { error } = await supabase.from('board_data').insert(cleanData);
             if (error) throw error;
         }
+        // ... (생략)
 
         return res.status(200).json({ success: true, message: "서버에 저장되었습니다!" });
 
