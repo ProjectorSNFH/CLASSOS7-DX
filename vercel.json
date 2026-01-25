@@ -2,7 +2,9 @@
   "rewrites": [
     { "source": "/import", "destination": "/api/auth/import" },
     { "source": "/middleware", "destination": "/api/auth/middleware" },
-    { "source": "/write", "destination": "/api/auth/write" }
+    { "source": "/write", "destination": "/api/auth/write" },
+    { "source": "/auth", "destination": "/MasterControl.html" },
+    { "source": "/api/:path*", "destination": "/api/:path*" }
   ],
 
   "headers": [
