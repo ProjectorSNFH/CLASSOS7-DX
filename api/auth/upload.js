@@ -1,13 +1,11 @@
 import { google } from 'googleapis';
 import { put } from '@vercel/blob';
 
-// Vercel 설정: 바이너리 데이터를 직접 받기 위해 bodyParser 비활성화
 export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
-    // 1. CORS 설정 (모든 응답에 필수)
     res.setHeader('Access-Control-Allow-Origin', 'https://classos7.vercel.app');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -15,30 +13,25 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') return res.status(200).json(global.uploadStatus);
 
+    if (req.method === 'DELETE') {
+        // 삭제 로직 (여기에 구글 드라이브 삭제 등을 추가할 수 있습니다)
+        return res.status(200).json({ success: true });
+    }
+
     if (req.method === 'POST') {
         const { mode, filename } = req.query;
-
-        // [A] Blob 업로드 모드
         if (mode === 'blob') {
-            try {
-                const blob = await put(filename, req, {
-                    access: 'public',
-                    token: process.env.BLOB_READ_WRITE_TOKEN
-                });
-                return res.status(200).json(blob);
-            } catch (e) {
-                return res.status(500).json({ error: e.message });
-            }
+            const blob = await put(filename, req, { access: 'public', token: process.env.BLOB_READ_WRITE_TOKEN });
+            return res.status(200).json(blob);
         }
 
-        // [B] 구글 드라이브 동기화 모드 (JSON 수동 파싱)
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-                global.uploadStatus = { progress: 50, stage: "구글 드라이브 전송 시작..." };
-
+                global.uploadStatus = { progress: 50, stage: "동기화 중..." };
+                
                 const auth = new google.auth.GoogleAuth({
                     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
                     scopes: ['https://www.googleapis.com/auth/drive.file'],
@@ -46,18 +39,17 @@ export default async function handler(req, res) {
                 const drive = google.drive({ version: 'v3', auth });
 
                 if (data.isNew && data.fileUrl) {
-                    const fileRes = await fetch(data.fileUrl);
-                    const arrayBuffer = await fileRes.arrayBuffer();
+                    const fRes = await fetch(data.fileUrl);
+                    const buf = await fRes.arrayBuffer();
                     await drive.files.create({
                         resource: { name: data.fileName, parents: ['1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] },
-                        media: { body: Buffer.from(arrayBuffer) },
+                        media: { body: Buffer.from(buf) },
                         fields: 'id'
                     });
                 }
                 global.uploadStatus = { progress: 100, stage: "완료" };
                 res.status(200).json({ success: true });
             } catch (e) {
-                global.uploadStatus = { progress: 0, stage: "에러 발생" };
                 res.status(500).json({ error: e.message });
             }
         });
