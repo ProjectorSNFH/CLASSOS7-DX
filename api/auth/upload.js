@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') return res.status(200).json(global.uploadStatus);
 
     if (req.method === 'DELETE') {
-        // 삭제 로직 (여기에 구글 드라이브 삭제 등을 추가할 수 있습니다)
+        // [삭제 반영 로직] 여기에 기존 DB 삭제 코드를 넣으세요
         return res.status(200).json({ success: true });
     }
 
@@ -30,8 +30,9 @@ export default async function handler(req, res) {
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-                global.uploadStatus = { progress: 50, stage: "동기화 중..." };
+                global.uploadStatus = { progress: 40, stage: "구글 드라이브 동기화..." };
                 
+                // 1. 구글 드라이브 업로드
                 const auth = new google.auth.GoogleAuth({
                     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
                     scopes: ['https://www.googleapis.com/auth/drive.file'],
@@ -44,9 +45,25 @@ export default async function handler(req, res) {
                     await drive.files.create({
                         resource: { name: data.fileName, parents: ['1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] },
                         media: { body: Buffer.from(buf) },
-                        fields: 'id'
                     });
                 }
+
+                // 2. ★ 중요: 실제 DB(JSON 리스트 등)에 기록하는 요청 ★
+                global.uploadStatus = { progress: 80, stage: "리스트 업데이트 중..." };
+                
+                // 기존에 사용하던 import API를 통해 데이터 영구 저장 요청
+                await fetch(`https://classos7-dx.vercel.app/api/auth/import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'datacenter',
+                        action: 'add',
+                        id: data.id,
+                        title: data.title,
+                        fileName: data.fileName
+                    })
+                });
+
                 global.uploadStatus = { progress: 100, stage: "완료" };
                 res.status(200).json({ success: true });
             } catch (e) {
