@@ -28,7 +28,7 @@ export default async function handler(req, res) {
                 resource: {
                     name: file.originalFilename,
                     description: `${uploader} | ${title}`,
-                    parents: ['1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] 
+                    parents: ['1ITNE8LN-1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] 
                 },
                 media: {
                     mimeType: file.mimetype,
