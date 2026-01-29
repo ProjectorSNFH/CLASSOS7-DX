@@ -18,37 +18,44 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
         const { mode, filename } = req.query;
 
+        // [A] Blob 업로드 모드 - 스트림 처리 방식 수정
         if (mode === 'blob') {
             try {
                 const token = process.env.BLOB_READ_WRITE_TOKEN;
-                const blob = await put(filename, req, { access: 'public', token });
+                if (!token) throw new Error("토큰이 없습니다. Redeploy 하세요.");
+
+                // req 자체를 바로 넘기지 않고 버퍼로 변환하여 안전하게 전달
+                const chunks = [];
+                for await (const chunk of req) {
+                    chunks.push(chunk);
+                }
+                const buffer = Buffer.concat(chunks);
+
+                const blob = await put(filename, buffer, { access: 'public', token });
                 return res.status(200).json(blob);
             } catch (e) {
+                console.error("Blob Error:", e.message);
                 return res.status(500).json({ error: e.message });
             }
         }
 
-        // [핵심] JSON 요청 처리 - 응답을 먼저 보내 타임아웃 방지
+        // [B] 구글 전송 및 DB 기록 모드
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-                
-                // 브라우저에 "접수됨"을 즉시 알림 (연결 끊김 방지)
-                res.status(202).json({ success: true, message: "작업 시작됨" });
+                res.status(202).json({ success: true }); // 타임아웃 방지 선응답
 
-                // 실제 무거운 작업 시작 (비동기 백그라운드 처리)
-                global.uploadStatus = { progress: 30, stage: "구글 드라이브 업로드 준비..." };
+                global.uploadStatus = { progress: 30, stage: "구글 드라이브 업로드 중..." };
                 
                 const auth = new google.auth.GoogleAuth({
                     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
                     scopes: ['https://www.googleapis.com/auth/drive.file'],
                 });
                 const drive = google.drive({ version: 'v3', auth });
-                
+
                 if (data.isNew && data.fileUrl) {
-                    global.uploadStatus = { progress: 50, stage: "구글 드라이브로 파일 복사 중..." };
                     const fRes = await fetch(data.fileUrl);
                     const buf = await fRes.arrayBuffer();
                     await drive.files.create({
@@ -64,9 +71,8 @@ export default async function handler(req, res) {
                     body: JSON.stringify({ type: 'datacenter', action: 'add', id: data.id, title: data.title, fileName: data.fileName })
                 });
 
-                global.uploadStatus = { progress: 100, stage: "모든 작업 완료" };
+                global.uploadStatus = { progress: 100, stage: "완료" };
             } catch (e) {
-                console.error("백그라운드 오류:", e);
                 global.uploadStatus = { progress: 0, stage: "에러: " + e.message };
             }
         });
