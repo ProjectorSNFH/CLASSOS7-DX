@@ -18,23 +18,28 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
         const { mode, filename } = req.query;
 
-        // [A] Blob 업로드 모드 - 스트림 처리 방식 수정
+        // [A] Blob 업로드 모드 - 스트림 대신 ArrayBuffer 사용으로 에러 차단
         if (mode === 'blob') {
             try {
                 const token = process.env.BLOB_READ_WRITE_TOKEN;
-                if (!token) throw new Error("토큰이 없습니다. Redeploy 하세요.");
+                if (!token) throw new Error("토큰 설정 누락");
 
-                // req 자체를 바로 넘기지 않고 버퍼로 변환하여 안전하게 전달
-                const chunks = [];
-                for await (const chunk of req) {
-                    chunks.push(chunk);
+                // 이 부분이 핵심: 어떤 환경에서도 작동하게 데이터를 바이너리로 직접 추출
+                let buffer;
+                if (typeof req.arrayBuffer === 'function') {
+                    const ab = await req.arrayBuffer();
+                    buffer = Buffer.from(ab);
+                } else {
+                    const chunks = [];
+                    for await (const chunk of req) { chunks.push(chunk); }
+                    buffer = Buffer.concat(chunks);
                 }
-                const buffer = Buffer.concat(chunks);
 
+                // put 함수에 buffer를 직접 전달하여 pipe 에러 방지
                 const blob = await put(filename, buffer, { access: 'public', token });
                 return res.status(200).json(blob);
             } catch (e) {
-                console.error("Blob Error:", e.message);
+                console.error("Blob Critical Error:", e.message);
                 return res.status(500).json({ error: e.message });
             }
         }
@@ -45,9 +50,9 @@ export default async function handler(req, res) {
         req.on('end', async () => {
             try {
                 const data = JSON.parse(body);
-                res.status(202).json({ success: true }); // 타임아웃 방지 선응답
+                res.status(202).json({ success: true }); 
 
-                global.uploadStatus = { progress: 30, stage: "구글 드라이브 업로드 중..." };
+                global.uploadStatus = { progress: 30, stage: "구글 드라이브 연동 중..." };
                 
                 const auth = new google.auth.GoogleAuth({
                     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
@@ -64,16 +69,16 @@ export default async function handler(req, res) {
                     });
                 }
 
-                global.uploadStatus = { progress: 80, stage: "리스트 업데이트 중..." };
+                global.uploadStatus = { progress: 80, stage: "최종 데이터 저장 중..." };
                 await fetch(`https://classos7-dx.vercel.app/api/auth/import`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ type: 'datacenter', action: 'add', id: data.id, title: data.title, fileName: data.fileName })
                 });
 
-                global.uploadStatus = { progress: 100, stage: "완료" };
+                global.uploadStatus = { progress: 100, stage: "모든 작업 완료" };
             } catch (e) {
-                global.uploadStatus = { progress: 0, stage: "에러: " + e.message };
+                global.uploadStatus = { progress: 0, stage: "실패: " + e.message };
             }
         });
     }
