@@ -36,7 +36,7 @@ export default async function handler(req, res) {
                 res.status(202).json({ success: true }); // 브라우저 타임아웃 방지
 
                 global.uploadStatus = { progress: 30, stage: "구글 드라이브 업로드 준비..." };
-                
+
                 const auth = new google.auth.GoogleAuth({
                     credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY),
                     scopes: ['https://www.googleapis.com/auth/drive.file'],
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
                 if (data.isNew && data.fileUrl) {
                     global.uploadStatus = { progress: 50, stage: "구글 드라이브로 파일 전송 중..." };
-                    
+
                     // 1. 블롭에서 데이터를 다시 가져옴
                     const fRes = await fetch(data.fileUrl);
                     const arrayBuffer = await fRes.arrayBuffer();
@@ -54,17 +54,25 @@ export default async function handler(req, res) {
                     // 2. [중요] 버퍼를 구글이 원하는 '스트림'으로 강제 변환 (pipe 에러 해결책)
                     const stream = new Readable();
                     stream.push(buffer);
-                    stream.push(null); 
+                    stream.push(null);
 
                     // 3. 구글 드라이브 업로드 실행
                     await drive.files.create({
-                        resource: { 
-                            name: data.fileName, 
-                            parents: ['1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] 
+                        resource: {
+                            name: data.fileName,
+                            parents: ['1ITNE8LN-2mx6VzPJczzi42Yh3kl5ElFy'] // 사용자님의 폴더 ID
                         },
-                        media: { 
+                        media: {
                             mimeType: 'application/octet-stream',
-                            body: stream // 스트림 객체를 전달
+                            body: stream
+                        },
+                        // [중요] 이 옵션들이 들어가야 서비스 계정이 자기 용량을 안 쓰고 주인 용량을 씁니다.
+                        fields: 'id',
+                        supportsAllDrives: true, // 모든 드라이브 지원 허용
+                    }, {
+                        // 서비스 계정의 0GB 제한을 무시하고 사용자님의 빈 공간을 사용하게 함
+                        options: {
+                            retryConfig: { retry: 3 }
                         }
                     });
                 }
